@@ -1,48 +1,49 @@
 from datetime import datetime
 
-from django.db.models import Count
+from django.db.models import Count, Q
 from rest_framework.decorators import api_view
 from .models import *
 from rest_framework.response import Response
 
 def find_active_for_today_story_files(subs_id):
-    """searches in DB for active stories- total and watched by given id(viewer)
-    returns to queries"""
     active_stories_for_today = StoryFile.objects.filter(
         end_date__gt=datetime.now()).values(
-        'story__preview', 'id', 'story').annotate()
+        'story', 'story__preview').annotate(amt=Count('id'))
     watched_stories_for_today = UserStoryInfo.objects.filter(
-        subs=subs_id).values('user_story_file', 'user_story_file__id',
-                                                'is_watched')
+        Q(subs=subs_id) &
+        Q(user_story_file__end_date__gt=datetime.now())
+    ).values('user_story_file__story').annotate(amt=Count('id', distinct=True))
+
     return active_stories_for_today, watched_stories_for_today
 
 
 def mark_watched_stories(active_stories, watched_stories):
     """marks watched categories of stories"""
     will_be_showed = dict()
-    for watched_story in watched_stories:
+    if len(watched_stories) < 1:
         for active_story in active_stories:
+            story = active_story['story']
             preview = active_story['story__preview']
-            category_story_id = active_story['story']
-            active_story_id = active_story['id']
 
-            if category_story_id not in will_be_showed:
-                will_be_showed.setdefault(category_story_id, dict())
-                will_be_showed[category_story_id]['preview'] = preview
+            if story not in will_be_showed:
+                will_be_showed.setdefault(story, dict())
+                will_be_showed[story]['preview'] = preview
+                will_be_showed[story]['watched_all'] = False
+        return will_be_showed
+    for watched_story in watched_stories:
+        watched_story_id = watched_story['user_story_file__story']
+        watched_story_amount = watched_story['amt']
+        for active_story in active_stories:
+            story = active_story['story']
+            amount = active_story['amt']
+            preview = active_story['story__preview']
 
-            if watched_story['user_story_file__id'] == active_story_id:
-                will_be_showed[category_story_id]['watched'] = True
+            if story not in will_be_showed:
+                will_be_showed.setdefault(story, dict())
+                will_be_showed[story]['preview'] = preview
+                will_be_showed[story]['watched_all'] = False
+
+            if watched_story_id == story and watched_story_amount == amount:
+                will_be_showed[story]['watched_all'] = True
     return will_be_showed
 
-
-@api_view(['GET'])
-def testing(request, subs_id):
-    """searches in DB for active stories- total and watched by given id(viewer)
-    returns to queries"""
-    active_stories_for_today = StoryFile.objects.filter(
-        end_date__gt=datetime.now()).values(
-        'story').annotate(amt=Count('id'))
-    watched_stories_for_today = UserStoryInfo.objects.filter(
-        subs=subs_id).values('user_story_file', 'user_story_file__id',
-                                                'is_watched')
-    return Response((active_stories_for_today, watched_stories_for_today))
