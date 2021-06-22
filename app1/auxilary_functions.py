@@ -1,13 +1,16 @@
 from datetime import datetime
 
+from django.db.models import Count
+from rest_framework.decorators import api_view
 from .models import *
-
+from rest_framework.response import Response
 
 def find_active_for_today_story_files(subs_id):
     """searches in DB for active stories- total and watched by given id(viewer)
     returns to queries"""
-    active_stories_for_today = StoryFile.objects.filter(end_date__gt=datetime.now()).values('story__preview', 'id',
-                                                                                            'story')
+    active_stories_for_today = StoryFile.objects.filter(
+        end_date__gt=datetime.now()).values(
+        'story__preview', 'id', 'story').annotate()
     watched_stories_for_today = UserStoryInfo.objects.filter(
         subs=subs_id).values('user_story_file', 'user_story_file__id',
                                                 'is_watched')
@@ -30,3 +33,16 @@ def mark_watched_stories(active_stories, watched_stories):
             if watched_story['user_story_file__id'] == active_story_id:
                 will_be_showed[category_story_id]['watched'] = True
     return will_be_showed
+
+
+@api_view(['GET'])
+def testing(request, subs_id):
+    """searches in DB for active stories- total and watched by given id(viewer)
+    returns to queries"""
+    active_stories_for_today = StoryFile.objects.filter(
+        end_date__gt=datetime.now()).values(
+        'story').annotate(amt=Count('id'))
+    watched_stories_for_today = UserStoryInfo.objects.filter(
+        subs=subs_id).values('user_story_file', 'user_story_file__id',
+                                                'is_watched')
+    return Response((active_stories_for_today, watched_stories_for_today))
