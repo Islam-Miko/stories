@@ -53,3 +53,51 @@ def sort_by_order_num(arr_dict):
     result = sorted(arr_dict, key=lambda i: i['story__order_num'])
     return result
 
+
+def find_active_project_stories(story_id):
+    all_project_stories = StoryFile.objects.filter(
+        Q(story=story_id) & Q(end_date__gt=datetime.now()) &
+        Q(start_date__lt=datetime.now())
+    ).values('id', 'detailedUrl', 'detailedText',
+             'content_type', 'content',
+             'duration', 'start_date')
+    return all_project_stories
+
+
+def find_date_of_earlies_start(stories):
+    early_story = min(stories, key=lambda i: i['start_date'])
+    return early_story['start_date']
+
+
+def find_watched_stories_by_subs(subs, earliest_date):
+    subs_watched_stories = UserStoryInfo.objects.filter(
+        Q(user_story_file__story=subs) &
+        Q(subs=subs) &
+        Q(watch_date__range=(earliest_date, datetime.today()))
+    ).values('user_story_file')
+    return subs_watched_stories
+
+
+def find_active_and_watched_stories(story_id, subs_id):
+    all_project_sories = find_active_project_stories(story_id)
+    earliest_date = find_date_of_earlies_start(all_project_sories)
+    all_watched_stories = find_watched_stories_by_subs(subs_id, earliest_date)
+    return all_project_sories, all_watched_stories
+
+
+def mark_stories_isWatched(all_stories, all_watched_stories):
+    if all_watched_stories:
+        for project_story in all_stories:
+            active_id = project_story['id']
+            project_story['is_watched'] = False
+            project_story.pop('start_date')
+            project_story.pop('id')
+            for watched_story in all_watched_stories:
+                watched_id = watched_story['user_story_file']
+                if watched_id == active_id:
+                    project_story['is_watched'] = True
+    else:
+        for project_story in all_stories:
+            project_story['is_watched'] = False
+            project_story.pop('start_date')
+            project_story.pop('id')
