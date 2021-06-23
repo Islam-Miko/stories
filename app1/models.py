@@ -14,7 +14,7 @@ class Story(models.Model):
     preview = models.ImageField(verbose_name='Icon', upload_to='app1/media/images')
     start_date = models.DateTimeField(verbose_name='Start date')
     addDate = models.DateTimeField(verbose_name='DA', auto_now_add=True)
-    order_num = models.IntegerField(verbose_name='Duration')
+    order_num = models.IntegerField(verbose_name='Order Priority')
     project = models.ForeignKey(Project, verbose_name='Project', on_delete=models.CASCADE)
     end_date = models.DateTimeField(verbose_name='End date')
 

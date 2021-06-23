@@ -4,11 +4,10 @@ from django.db.models import Count, Q
 from .models import *
 
 
-
 def find_active_for_today_story_files(subs_id):
     active_stories_for_today = StoryFile.objects.filter(
         end_date__gt=datetime.now()).values(
-        'story', 'story__preview').annotate(amt=Count('id'))
+        'story', 'story__preview', 'story__order_num').annotate(amt=Count('id'))
     watched_stories_for_today = UserStoryInfo.objects.filter(
         Q(subs=subs_id) &
         Q(user_story_file__end_date__gt=datetime.now())
@@ -44,4 +43,10 @@ def mark_watched_stories(active_stories, watched_stories):
             if watched_story_id == story and watched_story_amount == amount:
                 will_be_showed[story]['watched_all'] = True
     return will_be_showed
+
+
+def sort_by_order_num(arr_dict):
+    """sorts given dict accordingly to their order num (priority)"""
+    result = sorted(arr_dict, key=lambda i: i['story__order_num'])
+    return result
 
